@@ -76,11 +76,13 @@ def save_to_output(image_name: str):
     try:
         shutil.copy2(image_name, output_folder)
 
-        meta_data_name = str(Path(image_name).stem) + ".json"
-        breakpoint()
-        #parent_dir = Path(filename).parents[0]
-        #source_name = str(parent_dir / basename)
-        shutil.copy2(meta_data_name, output_folder)
+        basename = str(Path(image_name).stem) + ".json"
+        parent_dir = Path(filename).parents[0]
+        meta_data_name = str(parent_dir / basename)
+        if os.path.isfile(meta_data_name):
+            shutil.copy2(meta_data_name, output_folder)
+        else:
+            print("missing metadata file")
 
     except Exception as e:
         print(e)
@@ -90,22 +92,36 @@ def save_to_output(image_name: str):
 # initialize to the first file in the list
 filename = os.path.join(folder, fnames[0])  # name of first file in list
 image_elem = sg.Image(data=get_img_data(filename, first=True))
+#Currently not showing name 
 filename_display_elem = sg.Text(filename, size=(80, 3))
 file_num_display_elem = sg.Text('File 1 of {}'.format(num_files), size=(15, 1))
 
 # define layout, show and read the form
-col = [[filename_display_elem],
-       [image_elem]]
 
 #col_files = [[sg.Listbox(values=fnames, change_submits=True, size=(60, 30), key='listbox')],
 #             [sg.Button('Next', size=(8, 2)), sg.Button('Prev', size=(8, 2)), file_num_display_elem],
 #             [sg.Button('Yes', size=(8, 2)), sg.Button('No', size=(8, 2)), file_num_display_elem]
 #             ]
 
-col_files = [[sg.Button('Next', size=(8, 2)), sg.Button('Prev', size=(8, 2)), file_num_display_elem],
-             [sg.Button('Yes', size=(8, 2)), sg.Button('No', size=(8, 2))]]
+col1 = [
+        [sg.VPush()],
+        [sg.Button('Prev', size=(8, 2))],
+        [sg.VPush()]
+        ]
 
-layout = [[sg.Column(col_files), sg.Column(col)]]
+col2 = [
+       [file_num_display_elem],
+       [image_elem],
+       [sg.Push(), sg.Button('Yes', size=(8, 2)), sg.Button('No', size=(8, 2)), sg.Push()]
+       ]
+
+col3 = [
+        [sg.VPush()],
+        [sg.Button('Next', size=(8, 2))],
+        [sg.VPush()]
+        ]
+
+layout = [[sg.Column(col1), sg.Column(col2), sg.Column(col3)]]
 
 window = sg.Window('Image Browser', layout, return_keyboard_events=True,
                    location=(0, 0), use_default_focus=False)
@@ -148,7 +164,7 @@ while True:
     # update window with new image
     image_elem.update(data=get_img_data(filename, first=True))
     # update window with filename
-    filename_display_elem.update(filename)
+    #filename_display_elem.update(filename)
     # update page display
     file_num_display_elem.update('File {} of {}'.format(i+1, num_files))
 
