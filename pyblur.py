@@ -1,42 +1,35 @@
+from matplotlib import pyplot as plt
 import cv2
+import math
 import numpy as np
 
-def SoftBlurContours(image, contours, ksize, sigmaX, *args, **kwargs):
-	iterations = 3
-	if 'iters' in kwargs:
-		iterations = kwargs['iters']
-	sigmaY = args[0] if len(args) > 0 and args[0] != None else sigmaX
-	mksize = args[1] if len(args) > 1 and args[1] != None else ksize
-	msigmaX = args[2] if len(args) > 2 and args[2] != None else sigmaX
-	msigmaY = args[3] if len(args) > 3 and args[3] != None else msigmaX
-	mask = np.zeros(image.shape[:2])
-	for i, contour in enumerate(contours):
-		cv2.drawContours(mask, contour, 0, 255, -1)
-	blurred_image = cv2.GaussianBlur(image, (ksize,ksize), sigmaX, None, sigmaY)
-	result = np.copy(image)
-	for _ in range(iterations):
-		alpha = mask/255.
-		result = alpha[:, :, None]*blurred_image + (1-alpha)[:, :, None]*result
-		mask = cv2.GaussianBlur(mask, (mksize, mksize), msigmaX, None, msigmaY)
-	return result
+def gaussian_kernel(size, sigma, two_d=True):
+    'returns a one-dimensional gaussian kernel if two_d is False, otherwise 2d'
+    if two_d:
+        kernel = np.fromfunction(lambda x, y: (1/(2*math.pi*sigma**2)) * math.e ** ((-1*((x-(size-1)/2)**2+(y-(size-1)/2)**2))/(2*sigma**2)), (size, size))
+    else:
+        kernel = np.fromfunction(lambda x: math.e ** ((-1*(x-(size-1)/2)**2) / (2*sigma**2)), (size,))
+    return kernel / np.sum(kernel)
 
-def SoftBlurRect(image, rect, ksize, sigmaX, *args, **kwargs):
-	x,y,w,h = rect
-	contours = [[np.array([[x,y],[x+w,y],[x+w,y+h],[x,y+h]])]]
-	return SoftBlurContours(image, contours, ksize, sigmaX, *args, **kwargs)
+def gaussian_blur(img, k_size, k_sigma):
+    'takes a greyscale image in the form of a numpy array and blurs it with a kernel of size k-size and sigma `k_sigma`'
+    kernel = gaussian_kernel(k_size, k_sigma, False)
+    gaus_x = np.zeros((img.shape[0], img.shape[1] - k_size + 1, 3), dtype='float64')
+    for i, v in enumerate(kernel):
+        gaus_x += v * img[:, i : img.shape[1] - k_size + i + 1]
+    gaus_y = np.zeros((gaus_x.shape[0] - k_size + 1, gaus_x.shape[1], 3))
+    for i, v in enumerate(kernel):
+        gaus_y += v * gaus_x[i : img.shape[0]  - k_size + i + 1]
+    return gaus_y
 
-def BlurContours(image, contours, ksize, sigmaX, *args):
-	sigmaY = args[0] if len(args) > 0 else sigmaX
-	mask = np.zeros(image.shape[:2])
-	for i, contour in enumerate(contours):
-		cv2.drawContours(mask, contour, i, 255, -1)
-	blurred_image = cv2.GaussianBlur(image, (ksize, ksize), sigmaX, None, sigmaY)
-	result = np.copy(image)
-	alpha = mask/255.
-	result = alpha[:, :, None]*blurred_image + (1-alpha)[:, :, None]*result
-	return result
+ksize = 91
+sigma = 0.3*((ksize-1)*0.5 - 1) + 0.8
+kernel = gaussian_kernel(ksize, sigma)
 
-def BlurRect(image, rect, ksize, sigmaX, *args):
-	x,y,w,h = rect
-	contours = [[np.array([[x,y],[x+w,y],[x+w,y+h],[x,y+h]])]]
-	return BlurContours(image, contours, ksize, sigmaX, *args)
+
+img = cv2.imread('/Users/ramsddc1/Documents/Projects/pii_gui/imgs/IMG_0220.JPG')
+imgCopy = img.copy()
+
+dimg = gaussian_blur(imgCopy, ksize, sigma)
+
+cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/output.jpg",  dimg)
