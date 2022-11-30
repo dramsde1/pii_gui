@@ -19,8 +19,7 @@ def blend_with_mask_matrix(img, blurred, mask):
     return res
 
 
-def blur_image(img, pts, kernel, sigma_x):
-    #blurred = cv2.GaussianBlur(img, kernel, sigma_x)
+def blur_image(img, pts, kernel, blend_iterations):
     blurred = cv2.blur(img, kernel)
     mask = blurred.copy()
     fill_color = [255,255,255] 
@@ -32,10 +31,11 @@ def blur_image(img, pts, kernel, sigma_x):
     mask[sel] = fill_color
 
     mask = cv2.blur(mask, kernel)
-    cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/mask.jpg",  mask)
      
-    #cv2.GaussianBlur(mask, (551, 551), 111, dst=mask)
     res = blend_with_mask_matrix(img, blurred, mask)
+    blend_iterations -= 1
+    for i in range(blend_iterations):
+        res = blend_with_mask_matrix(res, blurred, mask)
     return res
 
 
@@ -43,7 +43,7 @@ img = cv2.imread('/Users/ramsddc1/Documents/Projects/pii_gui/imgs/IMG_0220.JPG')
 imgCopy = img.copy()
 # the points will be taken from the pysimplegui (its width, height and not row, column)
 pts = np.array([[0,0], [2000, 200], [3455, 5183]])
-res = blur_image(imgCopy, pts, (171, 171), 0)
+res = blur_image(imgCopy, pts, (71, 71), 4)
     
 cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/output.jpg",  res)
 print("done")
