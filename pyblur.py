@@ -1,35 +1,52 @@
-from matplotlib import pyplot as plt
+import os
 import cv2
-import math
 import numpy as np
+from matplotlib import pyplot as plt
+import dlib
 
-def gaussian_kernel(size, sigma, two_d=True):
-    'returns a one-dimensional gaussian kernel if two_d is False, otherwise 2d'
-    if two_d:
-        kernel = np.fromfunction(lambda x, y: (1/(2*math.pi*sigma**2)) * math.e ** ((-1*((x-(size-1)/2)**2+(y-(size-1)/2)**2))/(2*sigma**2)), (size, size))
-    else:
-        kernel = np.fromfunction(lambda x: math.e ** ((-1*(x-(size-1)/2)**2) / (2*sigma**2)), (size,))
-    return kernel / np.sum(kernel)
+def blend_with_mask_matrix(img, blurred, mask):
+    res_channels = []
+    for c in range(0, img.shape[2]):
+        a = img[:, :, c]
+        b = blurred[:, :, c]
+        m = mask[:, :, c]
+        res = cv2.add(
+            cv2.multiply(b, cv2.divide(np.full_like(m, 255) - m, 255.0, dtype=cv2.CV_32F), dtype=cv2.CV_32F),
+            cv2.multiply(a, cv2.divide(m, 255.0, dtype=cv2.CV_32F), dtype=cv2.CV_32F),
+           dtype=cv2.CV_8U)
+        res_channels += [res]
+    res = cv2.merge(res_channels)
+    return res
 
-def gaussian_blur(img, k_size, k_sigma):
-    'takes a greyscale image in the form of a numpy array and blurs it with a kernel of size k-size and sigma `k_sigma`'
-    kernel = gaussian_kernel(k_size, k_sigma, False)
-    gaus_x = np.zeros((img.shape[0], img.shape[1] - k_size + 1, 3), dtype='float64')
-    for i, v in enumerate(kernel):
-        gaus_x += v * img[:, i : img.shape[1] - k_size + i + 1]
-    gaus_y = np.zeros((gaus_x.shape[0] - k_size + 1, gaus_x.shape[1], 3))
-    for i, v in enumerate(kernel):
-        gaus_y += v * gaus_x[i : img.shape[0]  - k_size + i + 1]
-    return gaus_y
 
-ksize = 91
-sigma = 0.3*((ksize-1)*0.5 - 1) + 0.8
-kernel = gaussian_kernel(ksize, sigma)
+def blur_image(img, pts, kernel, sigma_x):
+    #blurred = cv2.GaussianBlur(img, kernel, sigma_x)
+    blurred = cv2.blur(img, kernel)
+    mask = blurred.copy()
+    fill_color = [255,255,255] 
+    mask_value = 255
+    pts = pts.reshape(-1, 1, 2) #flattens rows incase of weird points input
+    stencil  = np.zeros(mask.shape[:-1]).astype(np.uint8)
+    cv2.fillPoly(stencil, [pts], mask_value)
+    sel = stencil != mask_value # select everything that is not mask_value
+    mask[sel] = fill_color
+
+    mask = cv2.blur(mask, kernel)
+    cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/mask.jpg",  mask)
+     
+    #cv2.GaussianBlur(mask, (551, 551), 111, dst=mask)
+    res = blend_with_mask_matrix(img, blurred, mask)
+    return res
 
 
 img = cv2.imread('/Users/ramsddc1/Documents/Projects/pii_gui/imgs/IMG_0220.JPG')
 imgCopy = img.copy()
+# the points will be taken from the pysimplegui (its width, height and not row, column)
+pts = np.array([[0,0], [2000, 200], [3455, 5183]])
+res = blur_image(imgCopy, pts, (171, 171), 0)
+    
+cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/output.jpg",  res)
+print("done")
 
-dimg = gaussian_blur(imgCopy, ksize, sigma)
 
-cv2.imwrite("/Users/ramsddc1/Documents/Projects/pii_gui/output/output.jpg",  dimg)
+
